@@ -57,19 +57,15 @@ var Sevenzip = function (buffer) {
         return this._firstHeader;
     }
 
-    this.getFile = function(fileInfo) {
+    this.getFile = function(fileNumber) {
         let header = this._firstHeader;
         if (!header || !header.MainStreamInfo)
             return;
 
-        var name = fileInfo.name;
-        var data = null;
-        var created_time = fileInfo.created_time;
-        var access_time = fileInfo.access_time;
-        var modified_time = fileInfo.modified_time;
+        var buffer = null;
 
         if (!fileInfo.isEmptyStream) {
-            data = header.MainStreamInfo.getUnpackedBuffer(i);
+            data = header.MainStreamInfo.getUnpackedBuffer(fileNumber);
         } else {
             var aux = header.MainStreamInfo.SubStreamInfo;
 
@@ -93,7 +89,7 @@ var Sevenzip = function (buffer) {
             return;
         }
 
-        return new MyFile(name, created_time, modified_time, access_time, data);
+        return buffer;
     }
 
     this._parseFilesInfo = function () {
