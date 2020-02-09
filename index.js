@@ -40,7 +40,6 @@ var Sevenzip = function (buffer) {
     this._is7zFile = true;
     this.header_length = 32;
     this._buffer = new MyBuffer(buffer);
-    this._files = [];
 
     this.readData = function (offset, size) {
         return this._buffer.readData(offset, size);
@@ -54,8 +53,47 @@ var Sevenzip = function (buffer) {
         return this._is7zFile;
     }
 
-    this.getFiles = function () {
-        return this._files;
+    this.getHeaders = function () {
+        return this._firstHeader;
+    }
+
+    this.getFile = function(fileInfo) {
+        let header = this._firstHeader;
+        if (!header || !header.MainStreamInfo)
+            return;
+
+        var name = fileInfo.name;
+        var data = null;
+        var created_time = fileInfo.created_time;
+        var access_time = fileInfo.access_time;
+        var modified_time = fileInfo.modified_time;
+
+        if (!fileInfo.isEmptyStream) {
+            data = header.MainStreamInfo.getUnpackedBuffer(i);
+        } else {
+            var aux = header.MainStreamInfo.SubStreamInfo;
+
+            if (aux.NumUnPackStream) {
+                aux.NumUnPackStream[0]++;
+
+                var a = aux.size.slice(i, aux.size.length);
+                var b = aux.CRC.slice(i, aux.CRC.length)
+
+                aux.size[i] = 0;
+                aux.CRC[i] = new Buffer(0);
+
+                var length = aux.size.length + 1;
+
+                for (var j = i + 1; j < length && a.length > 0; j++) {
+                    aux.size[j] = a[j - 1 - i];
+                    aux.CRC[j] = b[j - 1 - i];
+                }
+            }
+
+            return;
+        }
+
+        return new MyFile(name, created_time, modified_time, access_time, data);
     }
 
     this._parseFilesInfo = function () {
@@ -199,7 +237,7 @@ var Sevenzip = function (buffer) {
                         throw new Error("Not implemented yet.");
                     } else {
                         for (var j = 0; j < files.length; j++) {
-                            var time = this._parsed_buffer.read(8).readIntLE(0, 8);
+                            var time = this._parsed_buffer.read(8).readIntLE(0, 6);
 
                             time /= 10000;
 
@@ -228,7 +266,7 @@ var Sevenzip = function (buffer) {
                         throw new Error("Not implemented yet.");
                     } else {
                         for (var j = 0; j < files.length; j++) {
-                            var time = this._parsed_buffer.read(8).readIntLE(0, 8);
+                            var time = this._parsed_buffer.read(8).readIntLE(0, 6);
 
                             time /= 10000;
 
@@ -257,7 +295,7 @@ var Sevenzip = function (buffer) {
                         throw new Error("Not implemented yet.");
                     } else {
                         for (var j = 0; j < files.length; j++) {
-                            var time = this._parsed_buffer.read(8).readIntLE(0, 8);
+                            var time = this._parsed_buffer.read(8).readIntLE(0, 6);
 
                             time /= 10000;
 
@@ -577,7 +615,7 @@ var Sevenzip = function (buffer) {
                             decoder = lzma.decompressFile;
 
                             packetBuffer = Buffer.concat([folder.coders[0].properties, new Buffer(8).fill(0), packetBuffer]);
-                            packetBuffer.writeUIntLE(folder.UnPackSize[0], folder.coders[0].properties.length, 8);
+                            packetBuffer.writeUIntLE(folder.UnPackSize[0], folder.coders[0].properties.length, 6);
 
                         } else if (folder.coders[0].decompressionMethodId[0] == 0x21) {
                             throw new Error("LZMA2 Algorithm it's not yet implemented.");
@@ -618,7 +656,7 @@ var Sevenzip = function (buffer) {
                         decoder = lzma.decompressFile;
 
                         packetBuffer = Buffer.concat([folder.coders[0].properties, new Buffer(8).fill(0), packetBuffer]);
-                        packetBuffer.writeUIntLE(folder.UnPackSize[0], folder.coders[0].properties.length, 8);
+                        packetBuffer.writeUIntLE(folder.UnPackSize[0], folder.coders[0].properties.length, 6);
                     } else if (folder.coders[0].decompressionMethodId[0] == 0x21) {
                         throw new Error("LZMA2 Algorithm it's not yet implemented.");
                     } else if (folder.coders[0].decompressionMethodId[0] == 0x04 && folder.coders[0].decompressionMethodId[1] == 0x01 && folder.coders[0].decompressionMethodId[2] == 0x08) {
@@ -690,42 +728,6 @@ var Sevenzip = function (buffer) {
 
         if (header_property == this._cons.kEnd) {
 
-            for (var i = 0; i < header.FilesInfo.length; i++) {
-
-                var name = header.FilesInfo[i].name;
-                var data = null;
-                var created_time = header.FilesInfo[i].created_time;
-                var access_time = header.FilesInfo[i].access_time;
-                var modified_time = header.FilesInfo[i].modified_time;
-
-                if (!header.FilesInfo[i].isEmptyStream) {
-                    data = (header.MainStreamInfo) ? header.MainStreamInfo.getUnpackedBuffer(i) : new Buffer([]);
-                } else {
-                    var aux = header.MainStreamInfo.SubStreamInfo;
-
-                    if (aux.NumUnPackStream) {
-                        aux.NumUnPackStream[0]++;
-
-                        var a = aux.size.slice(i, aux.size.length);
-                        var b = aux.CRC.slice(i, aux.CRC.length)
-
-                        aux.size[i] = 0;
-                        aux.CRC[i] = new Buffer(0);
-
-                        var length = aux.size.length + 1;
-
-                        for (var j = i + 1; j < length && a.length > 0; j++) {
-                            aux.size[j] = a[j - 1 - i];
-                            aux.CRC[j] = b[j - 1 - i];
-                        }
-                    }
-
-                    data = new Buffer(0);
-                }
-
-                this._files.push(new MyFile(name, created_time, modified_time, access_time, data));
-            }
-
             return header;
         } else {
             throw new Error("ERROR Parsing header Info");
@@ -737,8 +739,8 @@ var Sevenzip = function (buffer) {
         this._version = this.readData(6, 2);
         this._startCRCHeader = this.readData(8, 4);
 
-        this._NextHeaderOffset = this.readData(12, 8).readUIntLE(0, 8);
-        this._NextHeaderSize = this.readData(20, 8).readUIntLE(0, 8);
+        this._NextHeaderOffset = this.readData(12, 8).readUIntLE(0, 6);
+        this._NextHeaderSize = this.readData(20, 8).readUIntLE(0, 6);
         this._NextHeaderCRC = this.readData(28, 4).getBuffer();
 
         this._parsed_buffer = this.readData(this._NextHeaderOffset + 32, this._NextHeaderSize);
