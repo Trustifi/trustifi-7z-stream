@@ -62,34 +62,29 @@ var Sevenzip = function (buffer) {
         if (!header || !header.MainStreamInfo)
             return;
 
-        var buffer = null;
-
-        if (!fileInfo.isEmptyStream) {
-            data = header.MainStreamInfo.getUnpackedBuffer(fileNumber);
-        } else {
-            var aux = header.MainStreamInfo.SubStreamInfo;
-
-            if (aux.NumUnPackStream) {
-                aux.NumUnPackStream[0]++;
-
-                var a = aux.size.slice(i, aux.size.length);
-                var b = aux.CRC.slice(i, aux.CRC.length)
-
-                aux.size[i] = 0;
-                aux.CRC[i] = new Buffer(0);
-
-                var length = aux.size.length + 1;
-
-                for (var j = i + 1; j < length && a.length > 0; j++) {
-                    aux.size[j] = a[j - 1 - i];
-                    aux.CRC[j] = b[j - 1 - i];
-                }
-            }
-
-            return;
+        if (!header.FilesInfo[fileNumber].isEmptyStream) {
+            let buffer = header.MainStreamInfo.getUnpackedBuffer(fileNumber);
+            return buffer;
         }
 
-        return buffer;
+        var aux = header.MainStreamInfo.SubStreamInfo;
+
+        if (aux.NumUnPackStream) {
+            aux.NumUnPackStream[0]++;
+
+            var a = aux.size.slice(i, aux.size.length);
+            var b = aux.CRC.slice(i, aux.CRC.length);
+
+            aux.size[i] = 0;
+            aux.CRC[i] = new Buffer(0);
+
+            var length = aux.size.length + 1;
+
+            for (var j = i + 1; j < length && a.length > 0; j++) {
+                aux.size[j] = a[j - 1 - i];
+                aux.CRC[j] = b[j - 1 - i];
+            }
+        }
     }
 
     this._parseFilesInfo = function () {
