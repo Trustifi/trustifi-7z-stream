@@ -72,17 +72,17 @@ var Sevenzip = function (buffer) {
         if (aux.NumUnPackStream) {
             aux.NumUnPackStream[0]++;
 
-            var a = aux.size.slice(i, aux.size.length);
-            var b = aux.CRC.slice(i, aux.CRC.length);
+            var a = aux.size.slice(fileNumber, aux.size.length);
+            var b = aux.CRC.slice(fileNumber, aux.CRC.length);
 
-            aux.size[i] = 0;
-            aux.CRC[i] = new Buffer(0);
+            aux.size[fileNumber] = 0;
+            aux.CRC[fileNumber] = new Buffer(0);
 
             var length = aux.size.length + 1;
 
-            for (var j = i + 1; j < length && a.length > 0; j++) {
-                aux.size[j] = a[j - 1 - i];
-                aux.CRC[j] = b[j - 1 - i];
+            for (var j = fileNumber + 1; j < length && a.length > 0; j++) {
+                aux.size[j] = a[j - 1 - fileNumber];
+                aux.CRC[j] = b[j - 1 - fileNumber];
             }
         }
     }

@@ -1,6 +1,6 @@
 {
   "name": "7z-stream",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "7z-stream is a streaming 7z parser.",
   "main": "index.js",
   "scripts": {
